@@ -6,7 +6,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 app.use(bodyParser.json());
 app.use(express.static('public'));
@@ -156,7 +156,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🚀 Serveur Express démarré sur http://0.0.0.0:${PORT}`);
-    console.log('📡 Endpoint disponible: POST /send-whatsapp');
-    console.log('📊 Status endpoint: GET /status\n');
+    console.log(`Serveur lancé sur le port ${PORT}`);
 });

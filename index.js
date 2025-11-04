@@ -1,5 +1,5 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const QRCode = require('qrcode');
 const express = require('express');
 const bodyParser = require('body-parser');
 const { execSync } = require('child_process');
@@ -10,6 +10,8 @@ const PORT = process.env.PORT || 5000;
 
 app.use(bodyParser.json());
 app.use(express.static('public'));
+
+let currentQR = null;
 
 function getChromiumPath() {
     if (process.env.CHROMIUM_PATH) {
@@ -73,18 +75,18 @@ const client = new Client({
 
 let isClientReady = false;
 
-client.on('qr', (qr) => {
-    console.log('\n========================================');
-    console.log('🔐 QR CODE WHATSAPP - Scannez avec votre téléphone :');
-    console.log('========================================\n');
-    qrcode.generate(qr, { small: true });
-    console.log('\n========================================');
-    console.log('📱 Ouvrez WhatsApp > Menu > Appareils connectés > Connecter un appareil');
-    console.log('========================================\n');
+client.on('qr', async (qr) => {
+    try {
+        currentQR = await QRCode.toDataURL(qr);
+        console.log('🔐 QR Code généré - Consultez l\'interface web pour le scanner');
+    } catch (error) {
+        console.error('❌ Erreur génération QR code:', error);
+    }
 });
 
 client.on('authenticated', () => {
     console.log('✅ WhatsApp authentifié avec succès !');
+    currentQR = null;
 });
 
 client.on('auth_failure', (msg) => {
@@ -92,8 +94,9 @@ client.on('auth_failure', (msg) => {
 });
 
 client.on('ready', () => {
-    console.log('\n🎉 WhatsApp Client prêt !\n');
+    console.log('🎉 WhatsApp Client prêt !');
     isClientReady = true;
+    currentQR = null;
 });
 
 client.on('disconnected', (reason) => {
@@ -147,8 +150,17 @@ app.post('/send-whatsapp', async (req, res) => {
 app.get('/status', (req, res) => {
     res.json({
         whatsappReady: isClientReady,
-        status: isClientReady ? 'connecté' : 'en attente de connexion'
+        status: isClientReady ? 'connecté' : 'en attente de connexion',
+        hasQR: currentQR !== null
     });
+});
+
+app.get('/qr', (req, res) => {
+    if (currentQR) {
+        res.json({ qr: currentQR });
+    } else {
+        res.json({ qr: null });
+    }
 });
 
 app.get('/', (req, res) => {

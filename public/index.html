@@ -44,6 +44,42 @@
             font-size: 14px;
         }
 
+        .qr-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 25px;
+            display: none;
+        }
+
+        .qr-container.active {
+            display: block;
+        }
+
+        .qr-container h3 {
+            color: #128C7E;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .qr-container img {
+            max-width: 250px;
+            width: 100%;
+            height: auto;
+            border: 3px solid #25D366;
+            border-radius: 10px;
+            padding: 10px;
+            background: white;
+        }
+
+        .qr-instructions {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.6;
+        }
+
         .status {
             padding: 15px;
             border-radius: 10px;
@@ -62,6 +98,12 @@
             background-color: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
+        }
+
+        .status.waiting {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
         }
 
         .form-group {
@@ -182,7 +224,17 @@
         <h1>📱 Bot WhatsApp</h1>
         <p class="subtitle">Envoyez des messages automatiquement</p>
 
-        <div id="statusDiv" class="status disconnected">
+        <div id="qrContainer" class="qr-container">
+            <h3>🔐 Scannez le QR Code</h3>
+            <img id="qrImage" src="" alt="QR Code WhatsApp">
+            <div class="qr-instructions">
+                1. Ouvrez WhatsApp sur votre téléphone<br>
+                2. Menu > Appareils connectés<br>
+                3. Connecter un appareil > Scannez le QR code ci-dessus
+            </div>
+        </div>
+
+        <div id="statusDiv" class="status waiting">
             ⏳ Vérification du statut...
         </div>
 
@@ -228,6 +280,24 @@
         const statusDiv = document.getElementById('statusDiv');
         const loader = document.getElementById('loader');
         const sendBtn = document.getElementById('sendBtn');
+        const qrContainer = document.getElementById('qrContainer');
+        const qrImage = document.getElementById('qrImage');
+
+        async function checkQR() {
+            try {
+                const response = await fetch('/qr');
+                const data = await response.json();
+                
+                if (data.qr) {
+                    qrImage.src = data.qr;
+                    qrContainer.classList.add('active');
+                } else {
+                    qrContainer.classList.remove('active');
+                }
+            } catch (error) {
+                console.error('Erreur récupération QR:', error);
+            }
+        }
 
         async function checkStatus() {
             try {
@@ -238,9 +308,14 @@
                     statusDiv.className = 'status connected';
                     statusDiv.textContent = '✅ WhatsApp connecté et prêt';
                     sendBtn.disabled = false;
+                    qrContainer.classList.remove('active');
+                } else if (data.hasQR) {
+                    statusDiv.className = 'status waiting';
+                    statusDiv.textContent = '⏳ En attente de scan du QR code';
+                    sendBtn.disabled = true;
                 } else {
                     statusDiv.className = 'status disconnected';
-                    statusDiv.textContent = '⚠️ WhatsApp non connecté - Scannez le QR code dans la console';
+                    statusDiv.textContent = '⚠️ Connexion en cours...';
                     sendBtn.disabled = true;
                 }
             } catch (error) {
@@ -251,7 +326,9 @@
         }
 
         checkStatus();
-        setInterval(checkStatus, 5000);
+        checkQR();
+        setInterval(checkStatus, 3000);
+        setInterval(checkQR, 2000);
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();

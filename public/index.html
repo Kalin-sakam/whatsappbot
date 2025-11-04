@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot WhatsApp - Envoi de Messages</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #128C7E;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #25D366;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(37, 211, 102, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .response.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .response.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .loader.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #25D366;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Bot WhatsApp</h1>
+        <p class="subtitle">Envoyez des messages automatiquement</p>
+
+        <div id="statusDiv" class="status disconnected">
+            ⏳ Vérification du statut...
+        </div>
+
+        <form id="messageForm">
+            <div class="form-group">
+                <label for="phone">📞 Numéro de téléphone</label>
+                <input 
+                    type="text" 
+                    id="phone" 
+                    name="phone" 
+                    placeholder="237620704040" 
+                    required
+                >
+                <div class="hint">Format international sans le + (ex: 237620704040 pour le Cameroun)</div>
+            </div>
+
+            <div class="form-group">
+                <label for="message">💬 Message</label>
+                <textarea 
+                    id="message" 
+                    name="message" 
+                    placeholder="Entrez votre message ici..." 
+                    required
+                ></textarea>
+            </div>
+
+            <button type="submit" id="sendBtn">
+                🚀 Envoyer le message
+            </button>
+        </form>
+
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Envoi en cours...</p>
+        </div>
+
+        <div id="response" class="response"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('messageForm');
+        const responseDiv = document.getElementById('response');
+        const statusDiv = document.getElementById('statusDiv');
+        const loader = document.getElementById('loader');
+        const sendBtn = document.getElementById('sendBtn');
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+                
+                if (data.whatsappReady) {
+                    statusDiv.className = 'status connected';
+                    statusDiv.textContent = '✅ WhatsApp connecté et prêt';
+                    sendBtn.disabled = false;
+                } else {
+                    statusDiv.className = 'status disconnected';
+                    statusDiv.textContent = '⚠️ WhatsApp non connecté - Scannez le QR code dans la console';
+                    sendBtn.disabled = true;
+                }
+            } catch (error) {
+                statusDiv.className = 'status disconnected';
+                statusDiv.textContent = '❌ Erreur de connexion au serveur';
+                sendBtn.disabled = true;
+            }
+        }
+
+        checkStatus();
+        setInterval(checkStatus, 5000);
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const phone = document.getElementById('phone').value.trim();
+            const message = document.getElementById('message').value.trim();
+
+            if (!phone || !message) {
+                showResponse('error', '⚠️ Veuillez remplir tous les champs');
+                return;
+            }
+
+            loader.classList.add('active');
+            responseDiv.style.display = 'none';
+            sendBtn.disabled = true;
+
+            try {
+                const response = await fetch('/send-whatsapp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ phone, message })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showResponse('success', `✅ Message envoyé avec succès à ${phone}`);
+                    document.getElementById('message').value = '';
+                } else {
+                    showResponse('error', `❌ Erreur: ${data.error || 'Échec de l\'envoi'}`);
+                }
+            } catch (error) {
+                showResponse('error', `❌ Erreur de connexion: ${error.message}`);
+            } finally {
+                loader.classList.remove('active');
+                sendBtn.disabled = false;
+            }
+        });
+
+        function showResponse(type, message) {
+            responseDiv.className = `response ${type}`;
+            responseDiv.textContent = message;
+            responseDiv.style.display = 'block';
+
+            setTimeout(() => {
+                responseDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
